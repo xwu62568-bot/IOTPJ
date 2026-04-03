@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Wifi, WifiOff, Power, Zap, ChevronRight } from 'lucide-react';
-import { devices } from '../../data/mock-data';
+import { devices, dryContactDeviceTypes } from '../../data/mock-data';
 import { DryContactDetail } from '../config/dry-contact-detail';
 import { MeterDetail } from '../config/meter-detail';
 import { Switch } from '../ui/switch';
@@ -89,10 +89,8 @@ export function DevicesTab({ onSubPageChange }: { onSubPageChange?: (inSub: bool
                           className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2"
                         >
                           <div className="flex items-center gap-2">
-                            <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[9px] text-white ${
-                              port.type === '灯' ? 'bg-yellow-500' : port.type === '泵' ? 'bg-blue-500' : 'bg-emerald-500'
-                            }`}>
-                              {port.type}
+                            <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[12px]`}>
+                              {dryContactDeviceTypes.find(d => d.key === port.deviceType)?.icon || '⚙️'}
                             </span>
                             <span className="text-[12px]">{port.name}</span>
                             <span className="text-[10px] text-gray-400">#{port.id}</span>

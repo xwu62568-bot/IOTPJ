@@ -1,7 +1,11 @@
 import { useState } from 'react';
-import { BarChart3, Volume2, VolumeX, MapPin, ArrowLeft, Wifi, WifiOff, RefreshCw, Settings, Edit, Sliders } from 'lucide-react';
-import { sensors } from '../../data/mock-data';
-import type { SensorData } from '../../data/mock-data';
+import {
+  ArrowLeft, Wifi, WifiOff, RefreshCw, Edit, Sliders, Plus,
+  Hash, ScanLine, ChevronDown, ChevronRight, Check, Loader2,
+  CheckCircle, Eye, EyeOff, Radio, BarChart3, AlertCircle
+} from 'lucide-react';
+import { sensors, sensorTypeOptions } from '../../data/mock-data';
+import type { SensorData, SensorPackageType, SensorTypeOption } from '../../data/mock-data';
 
 const mockHistory = [
   { time: '12:00', temp: 16.2, hum: 63.5, co2: 580 },
@@ -12,10 +16,15 @@ const mockHistory = [
   { time: '14:30', temp: 16.9, hum: 62.0, co2: 620 },
 ];
 
+/* ===== Sensor Detail ===== */
 function SensorDetail({ sensor, onBack }: { sensor: SensorData; onBack: () => void }) {
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(sensor.name);
-  const [calibration, setCalibration] = useState({ temp: '0', hum: '0', co2: '0' });
+  const [calibration, setCalibration] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    sensor.metrics.forEach(m => { init[m.paramKey] = '0'; });
+    return init;
+  });
 
   const maxCo2 = Math.max(...mockHistory.map(h => h.co2));
   const minCo2 = Math.min(...mockHistory.map(h => h.co2));
@@ -35,12 +44,7 @@ function SensorDetail({ sensor, onBack }: { sensor: SensorData; onBack: () => vo
           <span className="text-gray-400">名称</span>
           {editingName ? (
             <div className="flex items-center gap-1">
-              <input
-                value={name}
-                onChange={e => setName(e.target.value)}
-                className="bg-gray-50 rounded-lg px-2 py-0.5 text-[13px] w-32"
-                autoFocus
-              />
+              <input value={name} onChange={e => setName(e.target.value)} className="bg-gray-50 rounded-lg px-2 py-0.5 text-[13px] w-32" autoFocus />
               <button onClick={() => setEditingName(false)} className="text-emerald-600 text-[12px]">确定</button>
             </div>
           ) : (
@@ -54,6 +58,10 @@ function SensorDetail({ sensor, onBack }: { sensor: SensorData; onBack: () => vo
           <span className="text-gray-400">型号</span><span>{sensor.model}</span>
         </div>
         <div className="flex justify-between text-[13px]">
+          <span className="text-gray-400">类型</span>
+          <span>{sensorTypeOptions.find(t => t.key === sensor.sensorType)?.label || sensor.sensorType}</span>
+        </div>
+        <div className="flex justify-between text-[13px]">
           <span className="text-gray-400">ID</span><span>{sensor.id}</span>
         </div>
         <div className="flex justify-between text-[13px]">
@@ -63,7 +71,10 @@ function SensorDetail({ sensor, onBack }: { sensor: SensorData; onBack: () => vo
           </span>
         </div>
         <div className="flex justify-between text-[13px]">
-          <span className="text-gray-400">最近更新</span><span>{sensor.lastUpdate}</span>
+          <span className="text-gray-400">实时页显示</span>
+          <span className="flex items-center gap-1">
+            {sensor.showOnRealtime ? <><Eye className="w-3 h-3 text-emerald-500" /> 显示中</> : <><EyeOff className="w-3 h-3 text-gray-400" /> 未显示</>}
+          </span>
         </div>
       </div>
 
@@ -82,7 +93,7 @@ function SensorDetail({ sensor, onBack }: { sensor: SensorData; onBack: () => vo
         </div>
       </div>
 
-      {/* Mini trend chart (bar-based) */}
+      {/* Mini chart */}
       {sensor.online && sensor.metrics.length > 1 && (
         <div className="bg-white rounded-2xl p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
@@ -98,39 +109,11 @@ function SensorDetail({ sensor, onBack }: { sensor: SensorData; onBack: () => vo
               return (
                 <div key={d.time} className="flex-1 flex flex-col items-center gap-0.5">
                   {isLast && <span className="text-[8px] text-emerald-600">{d.co2}</span>}
-                  <div
-                    className={`w-full rounded-sm ${isLast ? 'bg-emerald-500' : 'bg-emerald-200'}`}
-                    style={{ height: `${h}%` }}
-                  />
-                  <span className="text-[8px] text-gray-400">{d.time.split(':')[0]}:{d.time.split(':')[1]}</span>
+                  <div className={`w-full rounded-sm ${isLast ? 'bg-emerald-500' : 'bg-emerald-200'}`} style={{ height: `${h}%` }} />
+                  <span className="text-[8px] text-gray-400">{d.time}</span>
                 </div>
               );
             })}
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 mt-3">
-            {mockHistory.length > 0 && (
-              <>
-                <div className="bg-red-50 rounded-lg p-1.5 text-center">
-                  <div className="text-[9px] text-gray-400">温度趋势</div>
-                  <div className="text-[13px] text-red-600">
-                    {mockHistory[mockHistory.length - 1].temp}℃
-                  </div>
-                </div>
-                <div className="bg-blue-50 rounded-lg p-1.5 text-center">
-                  <div className="text-[9px] text-gray-400">湿度趋势</div>
-                  <div className="text-[13px] text-blue-600">
-                    {mockHistory[mockHistory.length - 1].hum}%
-                  </div>
-                </div>
-                <div className="bg-amber-50 rounded-lg p-1.5 text-center">
-                  <div className="text-[9px] text-gray-400">CO₂趋势</div>
-                  <div className="text-[13px] text-amber-600">
-                    {mockHistory[mockHistory.length - 1].co2}PPM
-                  </div>
-                </div>
-              </>
-            )}
           </div>
         </div>
       )}
@@ -141,31 +124,17 @@ function SensorDetail({ sensor, onBack }: { sensor: SensorData; onBack: () => vo
           <Sliders className="w-4 h-4 text-emerald-500" />
           <span className="text-[13px]">校准偏移</span>
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          <div>
-            <label className="text-[11px] text-gray-400 block mb-1">温度 (℃)</label>
-            <input
-              value={calibration.temp}
-              onChange={e => setCalibration(prev => ({ ...prev, temp: e.target.value }))}
-              className="w-full bg-gray-50 rounded-xl px-3 py-2 text-[14px] text-center"
-            />
-          </div>
-          <div>
-            <label className="text-[11px] text-gray-400 block mb-1">湿度 (%)</label>
-            <input
-              value={calibration.hum}
-              onChange={e => setCalibration(prev => ({ ...prev, hum: e.target.value }))}
-              className="w-full bg-gray-50 rounded-xl px-3 py-2 text-[14px] text-center"
-            />
-          </div>
-          <div>
-            <label className="text-[11px] text-gray-400 block mb-1">CO₂ (PPM)</label>
-            <input
-              value={calibration.co2}
-              onChange={e => setCalibration(prev => ({ ...prev, co2: e.target.value }))}
-              className="w-full bg-gray-50 rounded-xl px-3 py-2 text-[14px] text-center"
-            />
-          </div>
+        <div className={`grid gap-2 ${sensor.metrics.length > 2 ? 'grid-cols-3' : `grid-cols-${sensor.metrics.length}`}`}>
+          {sensor.metrics.map(m => (
+            <div key={m.paramKey}>
+              <label className="text-[11px] text-gray-400 block mb-1">{m.label} ({m.unit})</label>
+              <input
+                value={calibration[m.paramKey] || '0'}
+                onChange={e => setCalibration(prev => ({ ...prev, [m.paramKey]: e.target.value }))}
+                className="w-full bg-gray-50 rounded-xl px-3 py-2 text-[14px] text-center"
+              />
+            </div>
+          ))}
         </div>
       </div>
 
@@ -182,9 +151,382 @@ function SensorDetail({ sensor, onBack }: { sensor: SensorData; onBack: () => vo
   );
 }
 
+/* ===== Add Sensor Flow ===== */
+type AddStep = 'type' | 'serial' | 'searching' | 'found' | 'success';
+
+function AddSensorFlow({ onBack }: { onBack: () => void }) {
+  const [step, setStep] = useState<AddStep>('type');
+  const [selectedType, setSelectedType] = useState<SensorTypeOption | null>(null);
+  const [serial, setSerial] = useState('');
+  const [sensorName, setSensorName] = useState('');
+  const [addMode, setAddMode] = useState<'serial' | 'scan'>('serial');
+  const [showCombo, setShowCombo] = useState(true);
+  const [showSingle, setShowSingle] = useState(true);
+
+  const comboTypes = sensorTypeOptions.filter(t => t.category === 'combo');
+  const singleTypes = sensorTypeOptions.filter(t => t.category === 'single');
+
+  const handleSearch = () => {
+    if (!serial.trim()) return;
+    setStep('searching');
+    setTimeout(() => {
+      setSensorName(selectedType ? `${selectedType.label}-${Math.floor(Math.random() * 99)}` : '新传感器');
+      setStep('found');
+    }, 1500);
+  };
+
+  if (step === 'success') {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center -m-4 p-4">
+        <div className="text-center space-y-4 animate-[fadeIn_0.3s_ease]">
+          <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
+            <CheckCircle className="w-8 h-8 text-emerald-600" />
+          </div>
+          <div>
+            <h3 className="text-[18px] text-gray-800">传感器添加成功</h3>
+            <p className="text-[13px] text-gray-400 mt-1">{sensorName} 已上线</p>
+            <p className="text-[11px] text-gray-300 mt-0.5">参数卡片已自动显示在实时页</p>
+          </div>
+          <button onClick={onBack} className="mt-4 px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-[14px]">
+            返回传感器列表
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 -m-4 p-4">
+      <div className="flex items-center gap-3 mb-2">
+        <button
+          onClick={() => {
+            if (step === 'serial' || step === 'found') setStep('type');
+            else onBack();
+          }}
+          className="w-8 h-8 flex items-center justify-center"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <h3 className="text-[16px]">添加传感器</h3>
+        <span className="text-[12px] text-gray-400 ml-auto">
+          {step === 'type' ? '1/2 选择类型' : '2/2 输入序列号'}
+        </span>
+      </div>
+
+      {/* Step 1: Select sensor type */}
+      {step === 'type' && (
+        <div className="space-y-3 animate-[fadeIn_0.2s_ease]">
+          {/* Combo sensors */}
+          <button
+            onClick={() => setShowCombo(!showCombo)}
+            className="w-full flex items-center justify-between px-1"
+          >
+            <span className="text-[13px] text-gray-600 flex items-center gap-1.5">
+              <Radio className="w-3.5 h-3.5 text-emerald-500" /> 组合传感器
+            </span>
+            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showCombo ? 'rotate-180' : ''}`} />
+          </button>
+          {showCombo && (
+            <div className="space-y-2">
+              {comboTypes.map(t => (
+                <button
+                  key={t.key}
+                  onClick={() => { setSelectedType(t); setStep('serial'); }}
+                  className={`w-full bg-white rounded-2xl p-4 shadow-sm text-left flex items-center gap-3 border-2 transition-all ${
+                    selectedType?.key === t.key ? 'border-emerald-500 bg-emerald-50' : 'border-transparent'
+                  }`}
+                >
+                  <span className="text-[24px]">{t.icon}</span>
+                  <div className="flex-1">
+                    <div className="text-[14px]">{t.label}</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">{t.description}</div>
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {t.metrics.map(m => (
+                        <span key={m} className="bg-emerald-50 text-emerald-600 text-[9px] px-1.5 py-0.5 rounded-full">{m}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-300" />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Single sensors */}
+          <button
+            onClick={() => setShowSingle(!showSingle)}
+            className="w-full flex items-center justify-between px-1 mt-2"
+          >
+            <span className="text-[13px] text-gray-600 flex items-center gap-1.5">
+              <Radio className="w-3.5 h-3.5 text-blue-500" /> 单项传感器
+            </span>
+            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showSingle ? 'rotate-180' : ''}`} />
+          </button>
+          {showSingle && (
+            <div className="grid grid-cols-2 gap-2">
+              {singleTypes.map(t => (
+                <button
+                  key={t.key}
+                  onClick={() => { setSelectedType(t); setStep('serial'); }}
+                  className="bg-white rounded-xl p-3 shadow-sm text-left"
+                >
+                  <span className="text-[20px]">{t.icon}</span>
+                  <div className="text-[13px] mt-1">{t.label}</div>
+                  <div className="text-[10px] text-gray-400">{t.description}</div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Step 2: Serial or Scan */}
+      {(step === 'serial' || step === 'searching' || step === 'found') && selectedType && (
+        <div className="space-y-4 animate-[fadeIn_0.2s_ease]">
+          {/* Selected type banner */}
+          <div className="bg-emerald-50 rounded-xl p-3 flex items-center gap-3">
+            <span className="text-[24px]">{selectedType.icon}</span>
+            <div>
+              <div className="text-[13px] text-emerald-700">{selectedType.label}</div>
+              <div className="text-[11px] text-emerald-500">{selectedType.description}</div>
+            </div>
+            <button onClick={() => setStep('type')} className="ml-auto text-[11px] text-emerald-600 bg-white px-2 py-1 rounded-lg">
+              更换
+            </button>
+          </div>
+
+          {step === 'serial' && (
+            <>
+              {/* Mode switch */}
+              <div className="bg-gray-100 rounded-xl p-1 flex">
+                <button
+                  onClick={() => setAddMode('serial')}
+                  className={`flex-1 py-2 rounded-lg text-[13px] flex items-center justify-center gap-1.5 transition-all ${
+                    addMode === 'serial' ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'
+                  }`}
+                >
+                  <Hash className="w-4 h-4" /> 序列号
+                </button>
+                <button
+                  onClick={() => setAddMode('scan')}
+                  className={`flex-1 py-2 rounded-lg text-[13px] flex items-center justify-center gap-1.5 transition-all ${
+                    addMode === 'scan' ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'
+                  }`}
+                >
+                  <ScanLine className="w-4 h-4" /> 扫码
+                </button>
+              </div>
+
+              {addMode === 'serial' ? (
+                <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+                  <label className="text-[13px] text-gray-500 flex items-center gap-1.5">
+                    <Hash className="w-3.5 h-3.5 text-emerald-500" /> 传感器序列号
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="请输入传感器序列号"
+                    value={serial}
+                    onChange={e => setSerial(e.target.value)}
+                    className="w-full bg-gray-50 rounded-xl px-3.5 py-2.5 text-[14px] outline-none border border-gray-100 focus:border-emerald-400"
+                  />
+                  <p className="text-[11px] text-gray-400">序列号位于传感器标签上</p>
+                </div>
+              ) : (
+                <div className="bg-gray-900 rounded-2xl overflow-hidden aspect-[4/3] flex flex-col items-center justify-center">
+                  <div className="w-40 h-40 border-2 border-white/30 rounded-2xl relative">
+                    <div className="absolute top-0 left-0 w-5 h-5 border-t-3 border-l-3 border-emerald-400 rounded-tl-lg" />
+                    <div className="absolute top-0 right-0 w-5 h-5 border-t-3 border-r-3 border-emerald-400 rounded-tr-lg" />
+                    <div className="absolute bottom-0 left-0 w-5 h-5 border-b-3 border-l-3 border-emerald-400 rounded-bl-lg" />
+                    <div className="absolute bottom-0 right-0 w-5 h-5 border-b-3 border-r-3 border-emerald-400 rounded-br-lg" />
+                    <div className="absolute left-2 right-2 h-0.5 bg-emerald-400 top-1/2 animate-pulse" />
+                  </div>
+                  <p className="text-white/60 text-[13px] mt-3">将二维码对准框内</p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                {addMode === 'scan' && (
+                  <button
+                    onClick={() => { setSerial('BLS-5A-20260315'); handleSearch(); }}
+                    className="flex-1 py-3 rounded-xl bg-gray-100 text-[14px] text-gray-600"
+                  >
+                    模拟扫码
+                  </button>
+                )}
+                <button
+                  onClick={handleSearch}
+                  disabled={addMode === 'serial' && !serial.trim()}
+                  className={`flex-1 py-3 rounded-xl text-[14px] text-white transition-all ${
+                    (addMode === 'serial' && !serial.trim()) ? 'bg-gray-300' : 'bg-emerald-600 active:bg-emerald-700'
+                  }`}
+                >
+                  搜索传感器
+                </button>
+              </div>
+            </>
+          )}
+
+          {step === 'searching' && (
+            <div className="flex flex-col items-center py-16">
+              <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+              <p className="text-[14px] text-gray-500 mt-4">正在搜索传感器...</p>
+            </div>
+          )}
+
+          {step === 'found' && (
+            <div className="space-y-4 animate-[fadeIn_0.2s_ease]">
+              <div className="bg-white rounded-2xl p-4 shadow-sm">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-[24px]">
+                    {selectedType.icon}
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-[15px]">{sensorName}</div>
+                    <div className="flex items-center gap-1 text-[11px] text-emerald-500 mt-0.5">
+                      <Wifi className="w-3 h-3" /> 传感器已就绪
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-600 rounded-full text-[11px]">已发现</span>
+                </div>
+                <div className="space-y-2 bg-gray-50 rounded-xl p-3">
+                  <div className="flex justify-between text-[12px]">
+                    <span className="text-gray-400">序列号</span><span>{serial}</span>
+                  </div>
+                  <div className="flex justify-between text-[12px]">
+                    <span className="text-gray-400">类型</span><span>{selectedType.label}</span>
+                  </div>
+                  <div className="flex justify-between text-[12px]">
+                    <span className="text-gray-400">参数</span>
+                    <span>{selectedType.metrics.join(', ')}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+                <label className="text-[13px] text-gray-500">传感器名称</label>
+                <input
+                  value={sensorName}
+                  onChange={e => setSensorName(e.target.value)}
+                  className="w-full bg-gray-50 rounded-xl px-3.5 py-2.5 text-[14px] outline-none border border-gray-100 focus:border-emerald-400"
+                />
+              </div>
+
+              <div className="bg-blue-50 rounded-xl p-3 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                <span className="text-[11px] text-blue-700">添加后传感器参数卡片将自动显示在实时页面</span>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setStep('serial')} className="flex-1 py-3 rounded-xl border border-gray-200 text-[14px] text-gray-600">
+                  重新搜索
+                </button>
+                <button
+                  onClick={() => setStep('success')}
+                  className="flex-1 py-3 rounded-xl bg-emerald-600 text-white text-[14px] active:bg-emerald-700"
+                >
+                  确认添加
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ===== Display Preference (same-type sensor selection) ===== */
+function DisplayPreference({ onBack }: { onBack: () => void }) {
+  const [localSensors, setLocalSensors] = useState(sensors.map(s => ({ ...s })));
+
+  // Group by paramKey to find same-type sensors
+  const paramGroups = new Map<string, { paramLabel: string; sensors: typeof localSensors }>();
+  localSensors.forEach(s => {
+    s.metrics.forEach(m => {
+      if (!paramGroups.has(m.paramKey)) {
+        paramGroups.set(m.paramKey, { paramLabel: m.label, sensors: [] });
+      }
+      const group = paramGroups.get(m.paramKey)!;
+      if (!group.sensors.find(gs => gs.id === s.id)) {
+        group.sensors.push(s);
+      }
+    });
+  });
+
+  // Only show groups with 2+ sensors
+  const multiGroups = Array.from(paramGroups.entries()).filter(([_, g]) => g.sensors.length > 1);
+
+  const toggleDisplay = (sensorId: string) => {
+    setLocalSensors(prev => prev.map(s =>
+      s.id === sensorId ? { ...s, showOnRealtime: !s.showOnRealtime } : s
+    ));
+  };
+
+  return (
+    <div className="space-y-4 -m-4 p-4">
+      <div className="flex items-center gap-3 mb-2">
+        <button onClick={onBack} className="w-8 h-8 flex items-center justify-center">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <h3 className="text-[16px]">数据源选择</h3>
+      </div>
+
+      <div className="bg-blue-50 rounded-xl p-3 flex items-start gap-2">
+        <AlertCircle className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+        <span className="text-[11px] text-blue-700">同类型传感器有多个时，选择哪个在实时页面显示。关闭的传感器仍会采集数据。</span>
+      </div>
+
+      {multiGroups.length === 0 ? (
+        <div className="text-center py-12">
+          <Check className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+          <p className="text-[14px] text-gray-400">暂无同类型传感器</p>
+        </div>
+      ) : (
+        multiGroups.map(([paramKey, group]) => (
+          <div key={paramKey} className="bg-white rounded-2xl p-4 shadow-sm">
+            <div className="text-[13px] text-gray-600 mb-3">{group.paramLabel} 传感器</div>
+            <div className="space-y-2">
+              {group.sensors.map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => toggleDisplay(s.id)}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${
+                    s.showOnRealtime ? 'bg-emerald-50 border-2 border-emerald-400' : 'bg-gray-50 border-2 border-transparent'
+                  }`}
+                >
+                  <div className="flex-1 text-left">
+                    <div className="text-[13px]">{s.name}</div>
+                    <div className="text-[11px] text-gray-400">{s.model} · ID:{s.id}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!s.online && (
+                      <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">离线</span>
+                    )}
+                    {s.showOnRealtime ? (
+                      <Eye className="w-4 h-4 text-emerald-500" />
+                    ) : (
+                      <EyeOff className="w-4 h-4 text-gray-300" />
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+
+      <button onClick={onBack} className="w-full bg-emerald-600 text-white rounded-xl py-3 text-[14px]">
+        保存
+      </button>
+    </div>
+  );
+}
+
+/* ===== Main Sensors Tab ===== */
 export function SensorsTab({ onSubPageChange }: { onSubPageChange?: (inSub: boolean) => void }) {
-  const [sourceMode, setSourceMode] = useState<'avg' | 'specific'>('avg');
   const [selectedSensor, setSelectedSensor] = useState<string | null>(null);
+  const [showAddFlow, setShowAddFlow] = useState(false);
+  const [showDisplayPref, setShowDisplayPref] = useState(false);
 
   const goToDetail = (id: string) => {
     setSelectedSensor(id);
@@ -192,11 +534,15 @@ export function SensorsTab({ onSubPageChange }: { onSubPageChange?: (inSub: bool
   };
   const goBack = () => {
     setSelectedSensor(null);
+    setShowAddFlow(false);
+    setShowDisplayPref(false);
     onSubPageChange?.(false);
   };
 
   const sensor = sensors.find(s => s.id === selectedSensor);
   if (sensor) return <SensorDetail sensor={sensor} onBack={goBack} />;
+  if (showAddFlow) return <AddSensorFlow onBack={goBack} />;
+  if (showDisplayPref) return <DisplayPreference onBack={goBack} />;
 
   const onlineCount = sensors.filter(s => s.online).length;
 
@@ -218,71 +564,72 @@ export function SensorsTab({ onSubPageChange }: { onSubPageChange?: (inSub: bool
         </div>
       </div>
 
-      {/* Data source toggle */}
-      <div className="bg-white rounded-2xl p-3 shadow-sm">
-        <span className="text-[11px] text-gray-400 block mb-2">首页传感数据来源</span>
-        <div className="flex bg-gray-100 rounded-xl p-0.5">
-          <button
-            onClick={() => setSourceMode('avg')}
-            className={`flex-1 py-2 rounded-lg text-[12px] transition-colors ${
-              sourceMode === 'avg' ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'
-            }`}
-          >
-            平均值
-          </button>
-          <button
-            onClick={() => setSourceMode('specific')}
-            className={`flex-1 py-2 rounded-lg text-[12px] transition-colors ${
-              sourceMode === 'specific' ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'
-            }`}
-          >
-            指定传感器
-          </button>
-        </div>
+      {/* Action buttons */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => { setShowAddFlow(true); onSubPageChange?.(true); }}
+          className="flex-1 bg-emerald-600 text-white rounded-xl py-2.5 text-[13px] flex items-center justify-center gap-1.5"
+        >
+          <Plus className="w-4 h-4" /> 添加传感器
+        </button>
+        <button
+          onClick={() => { setShowDisplayPref(true); onSubPageChange?.(true); }}
+          className="flex-1 bg-white text-gray-600 rounded-xl py-2.5 text-[13px] flex items-center justify-center gap-1.5 shadow-sm"
+        >
+          <Eye className="w-4 h-4" /> 数据源选择
+        </button>
       </div>
 
       {/* Sensor cards */}
-      {sensors.map(sensor => (
-        <button
-          key={sensor.id}
-          onClick={() => goToDetail(sensor.id)}
-          className={`w-full text-left rounded-2xl p-4 shadow-sm ${
-            sensor.online ? 'bg-white border-l-4 border-blue-500' : 'bg-gray-50 border-l-4 border-gray-300'
-          }`}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div>
+      {sensors.map(sensor => {
+        const typeInfo = sensorTypeOptions.find(t => t.key === sensor.sensorType);
+        return (
+          <button
+            key={sensor.id}
+            onClick={() => goToDetail(sensor.id)}
+            className={`w-full text-left rounded-2xl p-4 shadow-sm ${
+              sensor.online ? 'bg-white' : 'bg-gray-50'
+            } border-l-4 ${sensor.online ? 'border-emerald-500' : 'border-gray-300'}`}
+          >
+            <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <h4 className="text-[14px]">{sensor.name}</h4>
-                <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">ID:{sensor.id}</span>
-              </div>
-              <span className="text-[11px] text-gray-400">{sensor.model} · {sensor.lastUpdate}</span>
-            </div>
-            <div className="flex gap-1.5">
-              {sensor.online ? (
-                <span className="text-[10px] text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-0.5">
-                  <Wifi className="w-2.5 h-2.5" /> 在线
-                </span>
-              ) : (
-                <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full flex items-center gap-0.5">
-                  <WifiOff className="w-2.5 h-2.5" /> 离线
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            {sensor.metrics.map(m => (
-              <div key={m.label} className="bg-gray-50 rounded-lg p-2">
-                <div className="text-[10px] text-gray-400">{m.label}</div>
-                <div className={`text-[16px] ${m.value === '--' ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {m.value}<span className="text-[10px] ml-0.5">{m.unit}</span>
+                <span className="text-[18px]">{typeInfo?.icon || '📡'}</span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-[14px]">{sensor.name}</h4>
+                    {sensor.showOnRealtime && (
+                      <Eye className="w-3 h-3 text-emerald-400" />
+                    )}
+                  </div>
+                  <span className="text-[11px] text-gray-400">{typeInfo?.label} · {sensor.model} · {sensor.lastUpdate}</span>
                 </div>
               </div>
-            ))}
-          </div>
-        </button>
-      ))}
+              <div className="flex items-center gap-1.5">
+                {sensor.online ? (
+                  <span className="text-[10px] text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                    <Wifi className="w-2.5 h-2.5" /> 在线
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                    <WifiOff className="w-2.5 h-2.5" /> 离线
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className={`grid gap-2 ${sensor.metrics.length <= 2 ? 'grid-cols-2' : sensor.metrics.length <= 3 ? 'grid-cols-3' : 'grid-cols-3'}`}>
+              {sensor.metrics.map(m => (
+                <div key={m.label} className="bg-gray-50 rounded-lg p-2">
+                  <div className="text-[10px] text-gray-400">{m.label}</div>
+                  <div className={`text-[15px] ${m.value === '--' ? 'text-gray-300' : 'text-gray-700'}`}>
+                    {m.value}<span className="text-[9px] ml-0.5">{m.unit}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }
