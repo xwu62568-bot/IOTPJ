@@ -3,7 +3,10 @@ import {
   Thermometer, Droplets, Wind, Sun, Gauge, Zap, TrendingUp, TrendingDown,
   Activity, Waves, Beaker, BarChart3, Link2, ChevronRight
 } from 'lucide-react';
-import { sensors, devices, realtimeData, paramCardDefs, linkageTemplates } from '../../data/mock-data';
+import {
+  sensors, devices, realtimeData, paramCardDefs, realtimeDisplayBindings, controlStrategies,
+  type RealtimeDisplayBinding, type SensorData, type SensorMetric,
+} from '../../data/mock-data';
 import { LinkageStrategy } from '../config/linkage-strategy';
 
 type ConfigPage = null | string; // paramKey
@@ -28,6 +31,55 @@ function calcVPD(temp: number, humidity: number): { leaf: number; air: number } 
   return { leaf: Math.round((svpLeaf - avp) * 100) / 100, air: Math.round((svp - avp) * 100) / 100 };
 }
 
+function resolveMetric(sensor: SensorData, paramKey: string): SensorMetric | undefined {
+  return sensor.metrics.find(metric => metric.paramKey === paramKey);
+}
+
+function formatAggregatedValue(value: number) {
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(value < 10 ? 2 : 1).replace(/\.?0+$/, '');
+}
+
+function resolveDisplayBinding(binding: RealtimeDisplayBinding) {
+  const sourceSensors = binding.sensorIds
+    .map(sensorId => sensors.find(sensor => sensor.id === sensorId))
+    .filter((sensor): sensor is SensorData => Boolean(sensor));
+
+  const available = sourceSensors
+    .filter(sensor => sensor.online)
+    .map(sensor => ({ sensor, metric: resolveMetric(sensor, binding.paramKey) }))
+    .filter((item): item is { sensor: SensorData; metric: SensorMetric } => Boolean(item.metric && item.metric.value !== '--'));
+
+  if (available.length === 0) return null;
+
+  if (binding.aggregation === 'single') {
+    const primary = available.find(item => item.sensor.id === binding.primarySensorId) || available[0];
+    return {
+      value: primary.metric.value,
+      unit: primary.metric.unit,
+      sensorName: primary.sensor.name,
+    };
+  }
+
+  const numericValues = available
+    .map(item => Number(item.metric.value))
+    .filter(value => !Number.isNaN(value));
+
+  if (numericValues.length === 0) return null;
+
+  const aggregated = binding.aggregation === 'avg'
+    ? numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length
+    : binding.aggregation === 'max'
+      ? Math.max(...numericValues)
+      : Math.min(...numericValues);
+
+  return {
+    value: formatAggregatedValue(aggregated),
+    unit: available[0]?.metric.unit || '',
+    sensorName: `${available.length} 个传感器${binding.aggregation === 'avg' ? '平均值' : binding.aggregation === 'max' ? '最大值' : '最小值'}`,
+  };
+}
+
 export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boolean) => void }) {
   const [configPage, setConfigPage] = useState<ConfigPage>(null);
 
@@ -40,14 +92,13 @@ export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boo
     onSubPageChange?.(false);
   };
 
-  // Build active parameter cards from sensors that are showOnRealtime
+  // Build active parameter cards from explicit realtime display bindings.
   const activeParams = new Map<string, { value: string; unit: string; sensorName: string }>();
-  sensors.filter(s => s.showOnRealtime && s.online).forEach(s => {
-    s.metrics.forEach(m => {
-      if (!activeParams.has(m.paramKey)) {
-        activeParams.set(m.paramKey, { value: m.value, unit: m.unit, sensorName: s.name });
-      }
-    });
+  realtimeDisplayBindings.forEach(binding => {
+    const resolved = resolveDisplayBinding(binding);
+    if (resolved) {
+      activeParams.set(binding.paramKey, resolved);
+    }
   });
 
   // Always compute VPD if temp and humidity are available
@@ -57,6 +108,8 @@ export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boo
   if (tempData && humData && tempData.value !== '--' && humData.value !== '--') {
     vpdData = calcVPD(parseFloat(tempData.value), parseFloat(humData.value));
   }
+
+  const strategyMap = new Map(controlStrategies.map(strategy => [strategy.paramKey, strategy]));
 
   // Linkage strategy page
   if (configPage) {
@@ -108,7 +161,7 @@ export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boo
                 value = d?.value || '--';
               }
 
-              const hasLink = card.hasLinkage && !!linkageTemplates[card.key];
+              const hasLink = card.hasLinkage && strategyMap.has(card.key);
               const rd = (realtimeData as any)[card.key];
               const alarm = rd?.alarm;
               const isAlarm = rd?.status === 'alarm';
@@ -164,7 +217,7 @@ export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boo
             <div className="grid grid-cols-3 gap-2">
               {substrateCards.map(card => {
                 const d = activeParams.get(card.key);
-                const hasLink = card.hasLinkage && !!linkageTemplates[card.key];
+                const hasLink = card.hasLinkage && strategyMap.has(card.key);
                 return (
                   <button
                     key={card.key}

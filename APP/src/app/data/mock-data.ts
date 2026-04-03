@@ -434,6 +434,583 @@ export const realtimeData = {
   pressure: { value: 1013, unit: 'hPa', alarm: null, status: 'normal' as const },
 };
 
+export type SensorAggregationMode = 'single' | 'avg' | 'max' | 'min';
+
+export interface RealtimeDisplayBinding {
+  id: string;
+  paramKey: string;
+  label: string;
+  aggregation: SensorAggregationMode;
+  sensorIds: string[];
+  primarySensorId?: string;
+  fallbackSensorIds?: string[];
+}
+
+export interface StrategySourceBinding {
+  aggregation: SensorAggregationMode;
+  sensorIds: string[];
+  primarySensorId?: string;
+  excludeOffline: boolean;
+  fallbackSensorIds?: string[];
+}
+
+export interface StrategySetpoint {
+  target: number;
+  upperOffset: number;
+  lowerOffset: number;
+  hysteresis: number;
+  delaySeconds: number;
+}
+
+export interface StrategyAction {
+  id: string;
+  deviceId: string;
+  portId: number;
+  portName: string;
+  deviceType: string;
+  action: 'on' | 'off';
+  durationSeconds?: number;
+  order: number;
+}
+
+export interface StrategyStageDefinition {
+  id: string;
+  name: string;
+  triggerWhen: 'above' | 'below';
+  triggerValue: number;
+  recoverValue: number;
+  delaySeconds: number;
+  parallel: boolean;
+  enabled: boolean;
+  actions: StrategyAction[];
+}
+
+export interface StrategyInterlock {
+  id: string;
+  type: 'mutex' | 'requires' | 'inhibit';
+  label: string;
+  description: string;
+}
+
+export interface StrategyPeriodConfig {
+  label: string;
+  setpoint: StrategySetpoint;
+  stages: StrategyStageDefinition[];
+}
+
+export interface ControlStrategyDefinition {
+  id: string;
+  paramKey: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  priority: number;
+  displayBindingId?: string;
+  sourceBinding: StrategySourceBinding;
+  dayNightSplit: boolean;
+  day: StrategyPeriodConfig;
+  night: StrategyPeriodConfig;
+  interlocks: StrategyInterlock[];
+}
+
+export const realtimeDisplayBindings: RealtimeDisplayBinding[] = [
+  {
+    id: 'display-temperature',
+    paramKey: 'temperature',
+    label: '实时温度显示',
+    aggregation: 'single',
+    sensorIds: ['25', '24'],
+    primarySensorId: '25',
+    fallbackSensorIds: ['24'],
+  },
+  {
+    id: 'display-humidity',
+    paramKey: 'humidity',
+    label: '实时湿度显示',
+    aggregation: 'single',
+    sensorIds: ['25', '24'],
+    primarySensorId: '25',
+    fallbackSensorIds: ['24'],
+  },
+  {
+    id: 'display-co2',
+    paramKey: 'co2',
+    label: '实时 CO₂ 显示',
+    aggregation: 'single',
+    sensorIds: ['25', '24'],
+    primarySensorId: '25',
+    fallbackSensorIds: ['24'],
+  },
+  {
+    id: 'display-light',
+    paramKey: 'light',
+    label: '实时光照显示',
+    aggregation: 'single',
+    sensorIds: ['25'],
+    primarySensorId: '25',
+  },
+  {
+    id: 'display-par',
+    paramKey: 'par',
+    label: '实时 PAR 显示',
+    aggregation: 'single',
+    sensorIds: ['29'],
+    primarySensorId: '29',
+  },
+  {
+    id: 'display-pressure',
+    paramKey: 'pressure',
+    label: '实时气压显示',
+    aggregation: 'single',
+    sensorIds: ['25'],
+    primarySensorId: '25',
+  },
+  {
+    id: 'display-soil-temp',
+    paramKey: 'soilTemp',
+    label: '实时基质温度显示',
+    aggregation: 'single',
+    sensorIds: ['32'],
+    primarySensorId: '32',
+  },
+  {
+    id: 'display-soil-humidity',
+    paramKey: 'soilHumidity',
+    label: '实时基质湿度显示',
+    aggregation: 'single',
+    sensorIds: ['31'],
+    primarySensorId: '31',
+  },
+  {
+    id: 'display-water-temp',
+    paramKey: 'waterTemp',
+    label: '实时水温显示',
+    aggregation: 'single',
+    sensorIds: ['36'],
+    primarySensorId: '36',
+  },
+  {
+    id: 'display-water-level',
+    paramKey: 'waterLevel',
+    label: '实时液位显示',
+    aggregation: 'single',
+    sensorIds: ['35'],
+    primarySensorId: '35',
+  },
+  {
+    id: 'display-ec',
+    paramKey: 'ec',
+    label: '实时 EC 显示',
+    aggregation: 'single',
+    sensorIds: ['33'],
+    primarySensorId: '33',
+  },
+  {
+    id: 'display-ph',
+    paramKey: 'ph',
+    label: '实时 pH 显示',
+    aggregation: 'single',
+    sensorIds: ['34'],
+    primarySensorId: '34',
+  },
+];
+
+export const controlStrategies: ControlStrategyDefinition[] = [
+  {
+    id: 'strategy-temperature-climate',
+    paramKey: 'temperature',
+    name: '温度气候控制',
+    description: '根据温度进行分级降温，白天与夜间独立设定。',
+    enabled: true,
+    priority: 100,
+    displayBindingId: 'display-temperature',
+    sourceBinding: {
+      aggregation: 'avg',
+      sensorIds: ['25', '24'],
+      primarySensorId: '25',
+      excludeOffline: true,
+      fallbackSensorIds: ['25'],
+    },
+    dayNightSplit: true,
+    day: {
+      label: '白天',
+      setpoint: { target: 24, upperOffset: 2, lowerOffset: 2, hysteresis: 1, delaySeconds: 60 },
+      stages: [
+        {
+          id: 'temp-day-stage-1',
+          name: '一级降温',
+          triggerWhen: 'above',
+          triggerValue: 26,
+          recoverValue: 25,
+          delaySeconds: 60,
+          parallel: true,
+          enabled: true,
+          actions: [
+            { id: 'temp-day-stage-1-act-1', deviceId: 'd1', portId: 4, portName: '循环风扇-1', deviceType: 'circulation-fan', action: 'on', order: 1 },
+            { id: 'temp-day-stage-1-act-2', deviceId: 'd2', portId: 6, portName: '吸顶风扇-1', deviceType: 'ceiling-fan', action: 'on', order: 2 },
+          ],
+        },
+        {
+          id: 'temp-day-stage-2',
+          name: '二级降温',
+          triggerWhen: 'above',
+          triggerValue: 28,
+          recoverValue: 26,
+          delaySeconds: 90,
+          parallel: true,
+          enabled: true,
+          actions: [
+            { id: 'temp-day-stage-2-act-1', deviceId: 'd1', portId: 3, portName: '新风机-A', deviceType: 'fresh-air-fan', action: 'on', order: 1 },
+            { id: 'temp-day-stage-2-act-2', deviceId: 'd1', portId: 12, portName: '开窗电机-A', deviceType: 'window-motor', action: 'on', order: 2 },
+          ],
+        },
+        {
+          id: 'temp-day-stage-3',
+          name: '三级降温',
+          triggerWhen: 'above',
+          triggerValue: 30,
+          recoverValue: 28,
+          delaySeconds: 120,
+          parallel: true,
+          enabled: true,
+          actions: [
+            { id: 'temp-day-stage-3-act-1', deviceId: 'd1', portId: 11, portName: '湿帘水泵', deviceType: 'wet-curtain-pump', action: 'on', order: 1 },
+            { id: 'temp-day-stage-3-act-2', deviceId: 'd1', portId: 9, portName: '推拉风机-A', deviceType: 'push-pull-fan', action: 'on', order: 2 },
+          ],
+        },
+      ],
+    },
+    night: {
+      label: '夜间',
+      setpoint: { target: 22, upperOffset: 2, lowerOffset: 2, hysteresis: 1, delaySeconds: 120 },
+      stages: [
+        {
+          id: 'temp-night-stage-1',
+          name: '夜间通风降温',
+          triggerWhen: 'above',
+          triggerValue: 24,
+          recoverValue: 23,
+          delaySeconds: 120,
+          parallel: false,
+          enabled: true,
+          actions: [
+            { id: 'temp-night-stage-1-act-1', deviceId: 'd1', portId: 3, portName: '新风机-A', deviceType: 'fresh-air-fan', action: 'on', order: 1 },
+          ],
+        },
+      ],
+    },
+    interlocks: [
+      { id: 'temp-lock-1', type: 'requires', label: '湿帘需联动风机', description: '湿帘水泵动作时，必须同时开启至少一台风机。' },
+      { id: 'temp-lock-2', type: 'inhibit', label: '夜间禁遮阳', description: '夜间模式下不允许触发遮阳电机。' },
+    ],
+  },
+  {
+    id: 'strategy-humidity-climate',
+    paramKey: 'humidity',
+    name: '湿度调节',
+    description: '根据空气湿度进行除湿或加湿控制。',
+    enabled: true,
+    priority: 90,
+    displayBindingId: 'display-humidity',
+    sourceBinding: {
+      aggregation: 'avg',
+      sensorIds: ['25', '24'],
+      primarySensorId: '25',
+      excludeOffline: true,
+      fallbackSensorIds: ['25'],
+    },
+    dayNightSplit: true,
+    day: {
+      label: '白天',
+      setpoint: { target: 65, upperOffset: 5, lowerOffset: 7, hysteresis: 3, delaySeconds: 90 },
+      stages: [
+        {
+          id: 'humidity-day-stage-1',
+          name: '一级除湿',
+          triggerWhen: 'above',
+          triggerValue: 70,
+          recoverValue: 67,
+          delaySeconds: 120,
+          parallel: true,
+          enabled: true,
+          actions: [
+            { id: 'humidity-day-stage-1-act-1', deviceId: 'd1', portId: 3, portName: '新风机-A', deviceType: 'fresh-air-fan', action: 'on', order: 1 },
+          ],
+        },
+        {
+          id: 'humidity-day-stage-2',
+          name: '加湿维持',
+          triggerWhen: 'below',
+          triggerValue: 58,
+          recoverValue: 62,
+          delaySeconds: 90,
+          parallel: false,
+          enabled: true,
+          actions: [
+            { id: 'humidity-day-stage-2-act-1', deviceId: 'd2', portId: 2, portName: '加湿器-1', deviceType: 'humidifier', action: 'on', order: 1 },
+          ],
+        },
+      ],
+    },
+    night: {
+      label: '夜间',
+      setpoint: { target: 70, upperOffset: 5, lowerOffset: 8, hysteresis: 3, delaySeconds: 120 },
+      stages: [
+        {
+          id: 'humidity-night-stage-1',
+          name: '夜间机械除湿',
+          triggerWhen: 'above',
+          triggerValue: 76,
+          recoverValue: 72,
+          delaySeconds: 180,
+          parallel: false,
+          enabled: true,
+          actions: [
+            { id: 'humidity-night-stage-1-act-1', deviceId: 'd1', portId: 6, portName: '除湿机-1', deviceType: 'dehumidifier', action: 'on', order: 1 },
+          ],
+        },
+      ],
+    },
+    interlocks: [
+      { id: 'humidity-lock-1', type: 'mutex', label: '加湿/除湿互斥', description: '加湿器与除湿设备不可同时运行。' },
+    ],
+  },
+  {
+    id: 'strategy-co2-enrichment',
+    paramKey: 'co2',
+    name: 'CO₂ 补气',
+    description: '按 CO₂ 浓度进行补气，并与通风设备互锁。',
+    enabled: true,
+    priority: 80,
+    displayBindingId: 'display-co2',
+    sourceBinding: {
+      aggregation: 'avg',
+      sensorIds: ['25', '24'],
+      primarySensorId: '25',
+      excludeOffline: true,
+      fallbackSensorIds: ['25'],
+    },
+    dayNightSplit: false,
+    day: {
+      label: '全时段',
+      setpoint: { target: 900, upperOffset: 150, lowerOffset: 120, hysteresis: 50, delaySeconds: 60 },
+      stages: [
+        {
+          id: 'co2-stage-1',
+          name: '补气阶段',
+          triggerWhen: 'below',
+          triggerValue: 780,
+          recoverValue: 860,
+          delaySeconds: 60,
+          parallel: false,
+          enabled: true,
+          actions: [
+            { id: 'co2-stage-1-act-1', deviceId: 'd2', portId: 1, portName: 'CO₂电磁阀', deviceType: 'co2-generator', action: 'on', durationSeconds: 300, order: 1 },
+          ],
+        },
+      ],
+    },
+    night: {
+      label: '备用',
+      setpoint: { target: 900, upperOffset: 150, lowerOffset: 120, hysteresis: 50, delaySeconds: 60 },
+      stages: [],
+    },
+    interlocks: [
+      { id: 'co2-lock-1', type: 'mutex', label: '补气与新风互斥', description: 'CO₂ 补气时禁止新风机和开窗动作。' },
+    ],
+  },
+  {
+    id: 'strategy-light-photoperiod',
+    paramKey: 'light',
+    name: '光照补光',
+    description: '根据光照强度控制补光设备，并预留遮阳阶段。',
+    enabled: true,
+    priority: 70,
+    displayBindingId: 'display-light',
+    sourceBinding: {
+      aggregation: 'single',
+      sensorIds: ['25'],
+      primarySensorId: '25',
+      excludeOffline: true,
+    },
+    dayNightSplit: false,
+    day: {
+      label: '光照控制',
+      setpoint: { target: 650, upperOffset: 200, lowerOffset: 150, hysteresis: 80, delaySeconds: 120 },
+      stages: [
+        {
+          id: 'light-stage-1',
+          name: '补光阶段',
+          triggerWhen: 'below',
+          triggerValue: 500,
+          recoverValue: 620,
+          delaySeconds: 180,
+          parallel: false,
+          enabled: true,
+          actions: [
+            { id: 'light-stage-1-act-1', deviceId: 'd1', portId: 1, portName: '补光灯-1', deviceType: 'fill-light', action: 'on', order: 1 },
+            { id: 'light-stage-1-act-2', deviceId: 'd1', portId: 2, portName: '补光灯-2', deviceType: 'fill-light', action: 'on', order: 2 },
+          ],
+        },
+      ],
+    },
+    night: {
+      label: '备用',
+      setpoint: { target: 650, upperOffset: 200, lowerOffset: 150, hysteresis: 80, delaySeconds: 120 },
+      stages: [],
+    },
+    interlocks: [
+      { id: 'light-lock-1', type: 'inhibit', label: '夜间禁补光', description: '非设定光周期内，不执行补光动作。' },
+    ],
+  },
+  {
+    id: 'strategy-vpd-climate',
+    paramKey: 'vpd',
+    name: 'VPD 协同调节',
+    description: 'VPD 由温湿度共同计算，用于综合气候控制。',
+    enabled: true,
+    priority: 95,
+    displayBindingId: 'display-temperature',
+    sourceBinding: {
+      aggregation: 'avg',
+      sensorIds: ['25', '24'],
+      primarySensorId: '25',
+      excludeOffline: true,
+      fallbackSensorIds: ['25'],
+    },
+    dayNightSplit: true,
+    day: {
+      label: '白天',
+      setpoint: { target: 0.9, upperOffset: 0.25, lowerOffset: 0.2, hysteresis: 0.1, delaySeconds: 90 },
+      stages: [
+        {
+          id: 'vpd-day-stage-1',
+          name: 'VPD 过高降 VPD',
+          triggerWhen: 'above',
+          triggerValue: 1.15,
+          recoverValue: 1.0,
+          delaySeconds: 120,
+          parallel: true,
+          enabled: true,
+          actions: [
+            { id: 'vpd-day-stage-1-act-1', deviceId: 'd2', portId: 2, portName: '加湿器-1', deviceType: 'humidifier', action: 'on', order: 1 },
+            { id: 'vpd-day-stage-1-act-2', deviceId: 'd1', portId: 11, portName: '湿帘水泵', deviceType: 'wet-curtain-pump', action: 'on', order: 2 },
+          ],
+        },
+        {
+          id: 'vpd-day-stage-2',
+          name: 'VPD 过低升 VPD',
+          triggerWhen: 'below',
+          triggerValue: 0.7,
+          recoverValue: 0.82,
+          delaySeconds: 120,
+          parallel: false,
+          enabled: true,
+          actions: [
+            { id: 'vpd-day-stage-2-act-1', deviceId: 'd1', portId: 6, portName: '除湿机-1', deviceType: 'dehumidifier', action: 'on', order: 1 },
+          ],
+        },
+      ],
+    },
+    night: {
+      label: '夜间',
+      setpoint: { target: 0.75, upperOffset: 0.2, lowerOffset: 0.15, hysteresis: 0.08, delaySeconds: 120 },
+      stages: [],
+    },
+    interlocks: [
+      { id: 'vpd-lock-1', type: 'mutex', label: 'VPD 正反调节互斥', description: '加湿降 VPD 与除湿升 VPD 不可同时执行。' },
+    ],
+  },
+  {
+    id: 'strategy-irrigation-substrate',
+    paramKey: 'soilHumidity',
+    name: '基质湿度灌溉',
+    description: '根据基质湿度触发灌溉与停止灌溉。',
+    enabled: true,
+    priority: 85,
+    displayBindingId: 'display-soil-humidity',
+    sourceBinding: {
+      aggregation: 'single',
+      sensorIds: ['31'],
+      primarySensorId: '31',
+      excludeOffline: true,
+    },
+    dayNightSplit: false,
+    day: {
+      label: '灌溉控制',
+      setpoint: { target: 70, upperOffset: 5, lowerOffset: 10, hysteresis: 3, delaySeconds: 30 },
+      stages: [
+        {
+          id: 'soil-stage-1',
+          name: '启动灌溉',
+          triggerWhen: 'below',
+          triggerValue: 60,
+          recoverValue: 68,
+          delaySeconds: 30,
+          parallel: true,
+          enabled: true,
+          actions: [
+            { id: 'soil-stage-1-act-1', deviceId: 'd2', portId: 3, portName: '水泵-主', deviceType: 'water-pump', action: 'on', durationSeconds: 180, order: 1 },
+            { id: 'soil-stage-1-act-2', deviceId: 'd2', portId: 4, portName: '灌溉阀-A', deviceType: 'solenoid-valve', action: 'on', durationSeconds: 180, order: 2 },
+          ],
+        },
+      ],
+    },
+    night: {
+      label: '备用',
+      setpoint: { target: 70, upperOffset: 5, lowerOffset: 10, hysteresis: 3, delaySeconds: 30 },
+      stages: [],
+    },
+    interlocks: [
+      { id: 'soil-lock-1', type: 'inhibit', label: '低液位禁止灌溉', description: '营养液液位过低时，灌溉策略自动抑制。' },
+    ],
+  },
+  {
+    id: 'strategy-water-level',
+    paramKey: 'waterLevel',
+    name: '液位补液',
+    description: '低液位时执行补液，高液位停止。',
+    enabled: true,
+    priority: 88,
+    displayBindingId: 'display-water-level',
+    sourceBinding: {
+      aggregation: 'single',
+      sensorIds: ['35'],
+      primarySensorId: '35',
+      excludeOffline: true,
+    },
+    dayNightSplit: false,
+    day: {
+      label: '补液控制',
+      setpoint: { target: 0.5, upperOffset: 0.08, lowerOffset: 0.1, hysteresis: 0.03, delaySeconds: 20 },
+      stages: [
+        {
+          id: 'water-level-stage-1',
+          name: '低液位补液',
+          triggerWhen: 'below',
+          triggerValue: 0.4,
+          recoverValue: 0.48,
+          delaySeconds: 20,
+          parallel: false,
+          enabled: true,
+          actions: [
+            { id: 'water-level-stage-1-act-1', deviceId: 'd4', portId: 1, portName: '补水阀', deviceType: 'solenoid-valve', action: 'on', order: 1 },
+            { id: 'water-level-stage-1-act-2', deviceId: 'd4', portId: 2, portName: '配肥泵', deviceType: 'water-pump', action: 'on', order: 2 },
+          ],
+        },
+      ],
+    },
+    night: {
+      label: '备用',
+      setpoint: { target: 0.5, upperOffset: 0.08, lowerOffset: 0.1, hysteresis: 0.03, delaySeconds: 20 },
+      stages: [],
+    },
+    interlocks: [
+      { id: 'water-level-lock-1', type: 'requires', label: '补液需阀泵联动', description: '补液时补水阀和配肥泵必须按顺序联动。' },
+    ],
+  },
+];
+
 export const dashboardSummary = {
   totalProjects: 5,
   onlineDevices: 28,
