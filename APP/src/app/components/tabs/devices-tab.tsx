@@ -7,6 +7,7 @@ import { Switch } from '../ui/switch';
 
 export function DevicesTab({ onSubPageChange }: { onSubPageChange?: (inSub: boolean) => void }) {
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
+  const [selectedPort, setSelectedPort] = useState<number | null>(null);
   const [portStates, setPortStates] = useState<Record<string, Record<number, boolean>>>(() => {
     const init: Record<string, Record<number, boolean>> = {};
     devices.forEach(dev => {
@@ -18,17 +19,21 @@ export function DevicesTab({ onSubPageChange }: { onSubPageChange?: (inSub: bool
     return init;
   });
 
-  const goToDetail = (id: string) => {
+  const goToDetail = (id: string, portId?: number) => {
     setSelectedDevice(id);
+    setSelectedPort(portId ?? null);
     onSubPageChange?.(true);
   };
   const goBack = () => {
     setSelectedDevice(null);
+    setSelectedPort(null);
     onSubPageChange?.(false);
   };
 
   const device = devices.find(d => d.id === selectedDevice);
-  if (device && device.type === 'dry-contact') return <DryContactDetail device={device} onBack={goBack} />;
+  if (device && device.type === 'dry-contact') {
+    return <DryContactDetail device={device} onBack={goBack} initialEditingPort={selectedPort} />;
+  }
   if (device && device.type === 'meter') return <MeterDetail device={device} onBack={goBack} />;
 
   const togglePort = (deviceId: string, portId: number, value: boolean, e: React.MouseEvent) => {
@@ -86,16 +91,20 @@ export function DevicesTab({ onSubPageChange }: { onSubPageChange?: (inSub: bool
                       return (
                         <div
                           key={port.id}
-                          className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2"
+                          className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2 gap-2"
                         >
-                          <div className="flex items-center gap-2">
-                            <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[12px]`}>
+                          <button
+                            onClick={() => goToDetail(dev.id, port.id)}
+                            className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                          >
+                            <span className="w-6 h-6 rounded-lg flex items-center justify-center text-[12px] shrink-0">
                               {dryContactDeviceTypes.find(d => d.key === port.deviceType)?.icon || '⚙️'}
                             </span>
-                            <span className="text-[12px]">{port.name}</span>
-                            <span className="text-[10px] text-gray-400">#{port.id}</span>
-                          </div>
-                          <div onClick={e => e.stopPropagation()}>
+                            <span className="text-[12px] truncate">{port.name}</span>
+                            <span className="text-[10px] text-gray-400 shrink-0">#{port.id}</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-gray-300 shrink-0" />
+                          </button>
+                          <div onClick={e => e.stopPropagation()} className="shrink-0">
                             <Switch
                               checked={isOn}
                               onCheckedChange={v => {

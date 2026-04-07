@@ -1,24 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  Search, Plus, Wifi, WifiOff, AlertTriangle, CheckCircle,
-  ChevronRight, ChevronDown, ChevronUp
+  Search, Plus, Wifi, WifiOff, AlertTriangle, CheckCircle
 } from 'lucide-react';
-import { projects, alarmHistory } from '../data/mock-data';
+import { projects } from '../data/mock-data';
 
 export function HomePage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
-  const [alarmsExpanded, setAlarmsExpanded] = useState(false);
 
   const filtered = projects.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
-
-  // Sort alarms: critical first, then warning
-  const sortedAlarms = [...alarmHistory].sort((a, b) => {
-    const order = { critical: 0, warning: 1 };
-    return order[a.level] - order[b.level];
-  });
-  const visibleAlarms = alarmsExpanded ? sortedAlarms : sortedAlarms.slice(0, 2);
 
   return (
     <div className="p-4 space-y-4">
@@ -32,46 +23,6 @@ export function HomePage() {
           <Plus className="w-5 h-5" />
         </button>
       </div>
-
-      {/* Active alarms */}
-      {sortedAlarms.length > 0 && (
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-red-500" />
-              <span className="text-[13px]">最近告警</span>
-              <span className="bg-red-100 text-red-600 text-[10px] px-1.5 py-0.5 rounded-full">{sortedAlarms.length}</span>
-            </div>
-            <button onClick={() => navigate('/messages')} className="text-[11px] text-emerald-600 flex items-center gap-0.5">
-              查看全部 <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
-          <div className="space-y-2">
-            {visibleAlarms.map(alarm => (
-              <div key={alarm.id} className={`rounded-xl p-3 flex items-center gap-3 ${
-                alarm.level === 'critical' ? 'bg-red-50' : 'bg-amber-50'
-              }`}>
-                <div className={`w-2 h-2 rounded-full shrink-0 ${
-                  alarm.level === 'critical' ? 'bg-red-500 animate-pulse' : 'bg-amber-500'
-                }`} />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[12px] truncate">{alarm.project} · {alarm.type}</div>
-                  <div className="text-[11px] text-gray-400">当前 {alarm.value} · 阈值 {alarm.threshold}</div>
-                </div>
-                <span className="text-[10px] text-gray-400 shrink-0">{alarm.time}</span>
-              </div>
-            ))}
-          </div>
-          {sortedAlarms.length > 2 && (
-            <button
-              onClick={() => setAlarmsExpanded(!alarmsExpanded)}
-              className="w-full flex items-center justify-center gap-1 text-[11px] text-gray-400 mt-2 pt-2 border-t border-gray-100"
-            >
-              {alarmsExpanded ? (<>收起 <ChevronUp className="w-3 h-3" /></>) : (<>展开更多 ({sortedAlarms.length - 2}) <ChevronDown className="w-3 h-3" /></>)}
-            </button>
-          )}
-        </div>
-      )}
 
       {/* Search */}
       <div className="relative">

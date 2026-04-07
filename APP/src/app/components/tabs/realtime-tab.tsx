@@ -130,22 +130,25 @@ export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boo
     );
   }
 
-  // Group cards: environment, substrate/nutrient, power
+  // Group cards: climate, root-zone, power
   const envKeys = ['temperature', 'humidity', 'co2', 'vpd', 'light', 'par', 'pressure'];
-  const substrateKeys = ['soilTemp', 'soilHumidity', 'waterTemp', 'waterLevel', 'ec', 'ph'];
+  const mediumKeys = ['soilTemp', 'soilHumidity'];
+  const solutionKeys = ['waterTemp', 'waterLevel', 'ec', 'ph'];
 
   const envCards = paramCardDefs.filter(p => envKeys.includes(p.key) && (p.key === 'vpd' ? vpdData : activeParams.has(p.key)));
-  const substrateCards = paramCardDefs.filter(p => substrateKeys.includes(p.key) && activeParams.has(p.key));
+  const mediumCards = paramCardDefs.filter(p => mediumKeys.includes(p.key) && activeParams.has(p.key));
+  const solutionCards = paramCardDefs.filter(p => solutionKeys.includes(p.key) && activeParams.has(p.key));
+  const processCards = [...mediumCards, ...solutionCards];
   const hasMeter = devices.some(d => d.type === 'meter');
 
   return (
     <div className="space-y-4">
-      {/* Environment section */}
+      {/* Climate section */}
       {envCards.length > 0 && (
         <div>
           <div className="flex items-center gap-1.5 mb-2 px-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span className="text-[12px] text-gray-500">环境参数</span>
+            <span className="text-[12px] text-gray-500">环境气候</span>
           </div>
           <div className="grid grid-cols-2 gap-3">
             {envCards.map(card => {
@@ -206,36 +209,69 @@ export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boo
         </div>
       )}
 
-      {/* Substrate / Nutrient section */}
-      {substrateCards.length > 0 && (
+      {/* Root zone and fertigation section */}
+      {processCards.length > 0 && (
         <div>
           <div className="flex items-center gap-1.5 mb-2 px-1">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
-            <span className="text-[12px] text-gray-500">基质与营养液</span>
+            <span className="text-[12px] text-gray-500">根区水肥</span>
           </div>
           <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <div className="grid grid-cols-3 gap-2">
-              {substrateCards.map(card => {
-                const d = activeParams.get(card.key);
-                const hasLink = card.hasLinkage && strategyMap.has(card.key);
-                return (
-                  <button
-                    key={card.key}
-                    onClick={() => hasLink ? goToConfig(card.key) : undefined}
-                    className={`${card.bgColor} rounded-xl p-2.5 text-center relative ${hasLink ? 'active:scale-[0.97]' : ''}`}
-                  >
-                    <div className="text-[10px] text-gray-400">{card.label}</div>
-                    <div className={`text-[16px] ${card.color}`}>
-                      {d?.value || '--'}
-                      <span className="text-[9px] ml-0.5">{card.unit}</span>
-                    </div>
-                    {hasLink && (
-                      <Link2 className="w-2.5 h-2.5 text-gray-300 absolute top-1.5 right-1.5" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+            {mediumCards.length > 0 && (
+              <div className={solutionCards.length > 0 ? 'mb-4' : ''}>
+                <div className="text-[11px] text-gray-400 mb-2 px-0.5">根区基质</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {mediumCards.map(card => {
+                    const d = activeParams.get(card.key);
+                    const hasLink = card.hasLinkage && strategyMap.has(card.key);
+                    return (
+                      <button
+                        key={card.key}
+                        onClick={() => hasLink ? goToConfig(card.key) : undefined}
+                        className={`${card.bgColor} rounded-xl p-3 text-center relative ${hasLink ? 'active:scale-[0.97]' : ''}`}
+                      >
+                        <div className="text-[10px] text-gray-400">{card.label}</div>
+                        <div className={`text-[16px] ${card.color}`}>
+                          {d?.value || '--'}
+                          <span className="text-[9px] ml-0.5">{card.unit}</span>
+                        </div>
+                        {hasLink && (
+                          <Link2 className="w-2.5 h-2.5 text-gray-300 absolute top-1.5 right-1.5" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {solutionCards.length > 0 && (
+              <div>
+                <div className="text-[11px] text-gray-400 mb-2 px-0.5">营养液回路</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {solutionCards.map(card => {
+                    const d = activeParams.get(card.key);
+                    const hasLink = card.hasLinkage && strategyMap.has(card.key);
+                    return (
+                      <button
+                        key={card.key}
+                        onClick={() => hasLink ? goToConfig(card.key) : undefined}
+                        className={`${card.bgColor} rounded-xl p-3 text-center relative ${hasLink ? 'active:scale-[0.97]' : ''}`}
+                      >
+                        <div className="text-[10px] text-gray-400">{card.label}</div>
+                        <div className={`text-[16px] ${card.color}`}>
+                          {d?.value || '--'}
+                          <span className="text-[9px] ml-0.5">{card.unit}</span>
+                        </div>
+                        {hasLink && (
+                          <Link2 className="w-2.5 h-2.5 text-gray-300 absolute top-1.5 right-1.5" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -307,7 +343,7 @@ export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boo
       )}
 
       {/* No sensors hint */}
-      {envCards.length === 0 && substrateCards.length === 0 && (
+      {envCards.length === 0 && processCards.length === 0 && (
         <div className="text-center py-16">
           <BarChart3 className="w-12 h-12 text-gray-200 mx-auto mb-3" />
           <p className="text-[14px] text-gray-400">暂无传感器数据</p>
