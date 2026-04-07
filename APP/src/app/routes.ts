@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router';
+import { createBrowserRouter, createHashRouter } from 'react-router';
 import { Layout } from './components/layout';
 import { HomePage } from './components/home-page';
 import { ZonesPage } from './components/zones-page';
@@ -8,7 +8,7 @@ import { ProjectDetail } from './components/project-detail';
 import { CreateProject } from './components/create-project';
 import { CreateZone } from './components/create-zone';
 
-export const router = createBrowserRouter([
+const routes = [
   {
     path: '/',
     Component: Layout,
@@ -22,4 +22,8 @@ export const router = createBrowserRouter([
   { path: '/project/:id', Component: ProjectDetail },
   { path: '/create-project', Component: CreateProject },
   { path: '/create-zone', Component: CreateZone },
-]);
+];
+
+const useHashRouter = import.meta.env.VITE_DEPLOY_TARGET === 'github-pages';
+
+export const router = useHashRouter ? createHashRouter(routes) : createBrowserRouter(routes);
