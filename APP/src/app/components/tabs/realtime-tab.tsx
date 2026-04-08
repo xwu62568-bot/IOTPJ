@@ -44,7 +44,12 @@ function formatAggregatedValue(value: number) {
   return value.toFixed(value < 10 ? 2 : 1).replace(/\.?0+$/, '');
 }
 
-function resolveDisplayBinding(binding: RealtimeDisplayBinding) {
+function resolveDisplayBinding(binding: RealtimeDisplayBinding, primarySensorIdOverride?: string) {
+  const effBinding: RealtimeDisplayBinding = {
+    ...binding,
+    primarySensorId: primarySensorIdOverride ?? binding.primarySensorId,
+  };
+
   const sourceSensors = binding.sensorIds
     .map(sensorId => sensors.find(sensor => sensor.id === sensorId))
     .filter((sensor): sensor is SensorData => Boolean(sensor));
@@ -56,8 +61,8 @@ function resolveDisplayBinding(binding: RealtimeDisplayBinding) {
 
   if (available.length === 0) return null;
 
-  if (binding.aggregation === 'single') {
-    const primary = available.find(item => item.sensor.id === binding.primarySensorId) || available[0];
+  if (effBinding.aggregation === 'single') {
+    const primary = available.find(item => item.sensor.id === effBinding.primarySensorId) || available[0];
     return {
       value: primary.metric.value,
       unit: primary.metric.unit,
@@ -71,20 +76,53 @@ function resolveDisplayBinding(binding: RealtimeDisplayBinding) {
 
   if (numericValues.length === 0) return null;
 
-  const aggregated = binding.aggregation === 'avg'
+  const aggregated = effBinding.aggregation === 'avg'
     ? numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length
-    : binding.aggregation === 'max'
+    : effBinding.aggregation === 'max'
       ? Math.max(...numericValues)
       : Math.min(...numericValues);
 
   return {
     value: formatAggregatedValue(aggregated),
     unit: available[0]?.metric.unit || '',
-    sensorName: `${available.length} 个传感器${binding.aggregation === 'avg' ? '平均值' : binding.aggregation === 'max' ? '最大值' : '最小值'}`,
+    sensorName: `${available.length} 个传感器${effBinding.aggregation === 'avg' ? '平均值' : effBinding.aggregation === 'max' ? '最大值' : '最小值'}`,
   };
 }
 
-export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boolean) => void }) {
+/** 与实时卡片同源：当前在线且读数有效时，实际参与显示的传感器 id（用于策略页默认选中） */
+function resolveDisplaySensorId(binding: RealtimeDisplayBinding, primarySensorIdOverride?: string): string | null {
+  const effBinding: RealtimeDisplayBinding = {
+    ...binding,
+    primarySensorId: primarySensorIdOverride ?? binding.primarySensorId,
+  };
+
+  const sourceSensors = binding.sensorIds
+    .map(sensorId => sensors.find(sensor => sensor.id === sensorId))
+    .filter((sensor): sensor is SensorData => Boolean(sensor));
+
+  const available = sourceSensors
+    .filter(sensor => sensor.online)
+    .map(sensor => ({ sensor, metric: resolveMetric(sensor, binding.paramKey) }))
+    .filter((item): item is { sensor: SensorData; metric: SensorMetric } => Boolean(item.metric && item.metric.value !== '--'));
+
+  if (available.length === 0) return null;
+
+  if (effBinding.aggregation === 'single') {
+    const primary = available.find(item => item.sensor.id === effBinding.primarySensorId) || available[0];
+    return primary.sensor.id;
+  }
+
+  const primary = available.find(item => item.sensor.id === effBinding.primarySensorId) || available[0];
+  return primary.sensor.id;
+}
+
+export function RealtimeTab({
+  onSubPageChange,
+  displayPrimaryByParamKey,
+}: {
+  onSubPageChange?: (inSub: boolean) => void;
+  displayPrimaryByParamKey: Record<string, string>;
+}) {
   const [pageState, setPageState] = useState<RealtimePageState>(null);
 
   const goToStrategy = (paramKey: string) => {
@@ -104,7 +142,7 @@ export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boo
   // Build active parameter cards from explicit realtime display bindings.
   const activeParams = new Map<string, { value: string; unit: string; sensorName: string }>();
   realtimeDisplayBindings.forEach(binding => {
-    const resolved = resolveDisplayBinding(binding);
+    const resolved = resolveDisplayBinding(binding, displayPrimaryByParamKey[binding.paramKey]);
     if (resolved) {
       activeParams.set(binding.paramKey, resolved);
     }
@@ -126,13 +164,19 @@ export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boo
       ? (vpdData ? String(vpdData.leaf) : '--')
       : (activeParams.get(pageState.paramKey)?.value || '--');
     const unit = paramDef?.unit || '';
+    const displayBinding = realtimeDisplayBindings.find(b => b.paramKey === pageState.paramKey);
+    const preferredSensorId = displayBinding
+      ? resolveDisplaySensorId(displayBinding, displayPrimaryByParamKey[displayBinding.paramKey])
+      : null;
 
     return (
       <LinkageStrategy
+        key={pageState.paramKey}
         paramKey={pageState.paramKey}
         paramLabel={paramDef?.label || pageState.paramKey}
         currentValue={value}
         unit={unit}
+        preferredSensorId={preferredSensorId}
         onBack={goBack}
       />
     );

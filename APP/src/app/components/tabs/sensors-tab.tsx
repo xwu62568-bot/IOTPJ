@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ArrowLeft, Wifi, WifiOff, RefreshCw, Edit, Sliders, Plus,
   Hash, ScanLine, ChevronDown, ChevronRight, Check, Loader2,
   CheckCircle, Eye, EyeOff, Radio, BarChart3, AlertCircle
 } from 'lucide-react';
-import { sensors, sensorTypeOptions } from '../../data/mock-data';
+import { sensors, sensorTypeOptions, realtimeDisplayBindings } from '../../data/mock-data';
 import type { SensorData, SensorPackageType, SensorTypeOption } from '../../data/mock-data';
 
 const mockHistory = [
@@ -17,7 +17,15 @@ const mockHistory = [
 ];
 
 /* ===== Sensor Detail ===== */
-function SensorDetail({ sensor, onBack }: { sensor: SensorData; onBack: () => void }) {
+function SensorDetail({
+  sensor,
+  showsOnRealtimeCard,
+  onBack,
+}: {
+  sensor: SensorData;
+  showsOnRealtimeCard: boolean;
+  onBack: () => void;
+}) {
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(sensor.name);
   const [calibration, setCalibration] = useState<Record<string, string>>(() => {
@@ -71,9 +79,13 @@ function SensorDetail({ sensor, onBack }: { sensor: SensorData; onBack: () => vo
           </span>
         </div>
         <div className="flex justify-between text-[13px]">
-          <span className="text-gray-400">实时页显示</span>
+          <span className="text-gray-400">实时页数据源</span>
           <span className="flex items-center gap-1">
-            {sensor.showOnRealtime ? <><Eye className="w-3 h-3 text-emerald-500" /> 显示中</> : <><EyeOff className="w-3 h-3 text-gray-400" /> 未显示</>}
+            {showsOnRealtimeCard ? (
+              <><Eye className="w-3 h-3 text-emerald-500" /> 作主数据源</>
+            ) : (
+              <><EyeOff className="w-3 h-3 text-gray-400" /> 未作主数据源</>
+            )}
           </span>
         </div>
       </div>
@@ -435,37 +447,38 @@ function AddSensorFlow({ onBack }: { onBack: () => void }) {
   );
 }
 
-/* ===== Display Preference (same-type sensor selection) ===== */
-function DisplayPreference({ onBack }: { onBack: () => void }) {
-  const [localSensors, setLocalSensors] = useState(sensors.map(s => ({ ...s })));
-
-  // Group by paramKey to find same-type sensors
-  const paramGroups = new Map<string, { paramLabel: string; sensors: typeof localSensors }>();
-  localSensors.forEach(s => {
-    s.metrics.forEach(m => {
-      if (!paramGroups.has(m.paramKey)) {
-        paramGroups.set(m.paramKey, { paramLabel: m.label, sensors: [] });
-      }
-      const group = paramGroups.get(m.paramKey)!;
-      if (!group.sensors.find(gs => gs.id === s.id)) {
-        group.sensors.push(s);
-      }
-    });
-  });
-
-  // Only show groups with 2+ sensors
-  const multiGroups = Array.from(paramGroups.entries()).filter(([_, g]) => g.sensors.length > 1);
-
-  const toggleDisplay = (sensorId: string) => {
-    setLocalSensors(prev => prev.map(s =>
-      s.id === sensorId ? { ...s, showOnRealtime: !s.showOnRealtime } : s
-    ));
-  };
+/* ===== Display Preference：与实时页 realtimeDisplayBindings 同一套主探头 ===== */
+function DisplayPreference({
+  onBack,
+  displayPrimaryByParamKey,
+  onSetDisplayPrimary,
+}: {
+  onBack: () => void;
+  displayPrimaryByParamKey: Record<string, string>;
+  onSetDisplayPrimary: (paramKey: string, sensorId: string) => void;
+}) {
+  const sections = useMemo(
+    () =>
+      realtimeDisplayBindings
+        .map(binding => {
+          const list = binding.sensorIds
+            .map(id => sensors.find(s => s.id === id))
+            .filter((s): s is SensorData =>
+              Boolean(s?.metrics.some(m => m.paramKey === binding.paramKey)),
+            );
+          if (list.length < 2) return null;
+          const paramLabel =
+            list[0].metrics.find(m => m.paramKey === binding.paramKey)?.label || binding.paramKey;
+          return { binding, paramLabel, sensors: list };
+        })
+        .filter((x): x is NonNullable<typeof x> => x != null),
+    [],
+  );
 
   return (
     <div className="space-y-4 -m-4 p-4">
       <div className="flex items-center gap-3 mb-2">
-        <button onClick={onBack} className="w-8 h-8 flex items-center justify-center">
+        <button type="button" onClick={onBack} className="w-8 h-8 flex items-center justify-center">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h3 className="text-[16px]">数据源选择</h3>
@@ -473,60 +486,89 @@ function DisplayPreference({ onBack }: { onBack: () => void }) {
 
       <div className="bg-blue-50 rounded-xl p-3 flex items-start gap-2">
         <AlertCircle className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
-        <span className="text-[11px] text-blue-700">同类型传感器有多个时，选择哪个在实时页面显示。关闭的传感器仍会采集数据。</span>
+        <span className="text-[11px] text-blue-700">
+          以下与「实时」页卡片一致：每个参数仅选一个主探头；若该探头离线或无有效读数，实时页会按绑定自动择优。
+        </span>
       </div>
 
-      {multiGroups.length === 0 ? (
+      {sections.length === 0 ? (
         <div className="text-center py-12">
           <Check className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-          <p className="text-[14px] text-gray-400">暂无同类型传感器</p>
+          <p className="text-[14px] text-gray-400">暂无多探头可选参数</p>
         </div>
       ) : (
-        multiGroups.map(([paramKey, group]) => (
-          <div key={paramKey} className="bg-white rounded-2xl p-4 shadow-sm">
-            <div className="text-[13px] text-gray-600 mb-3">{group.paramLabel} 传感器</div>
-            <div className="space-y-2">
-              {group.sensors.map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => toggleDisplay(s.id)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${
-                    s.showOnRealtime ? 'bg-emerald-50 border-2 border-emerald-400' : 'bg-gray-50 border-2 border-transparent'
-                  }`}
-                >
-                  <div className="flex-1 text-left">
-                    <div className="text-[13px]">{s.name}</div>
-                    <div className="text-[11px] text-gray-400">{s.model} · ID:{s.id}</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {!s.online && (
-                      <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">离线</span>
-                    )}
-                    {s.showOnRealtime ? (
-                      <Eye className="w-4 h-4 text-emerald-500" />
-                    ) : (
-                      <EyeOff className="w-4 h-4 text-gray-300" />
-                    )}
-                  </div>
-                </button>
-              ))}
+        sections.map(({ binding, paramLabel, sensors: list }) => {
+          const primaryId =
+            displayPrimaryByParamKey[binding.paramKey] ||
+            binding.primarySensorId ||
+            list[0]?.id ||
+            '';
+          return (
+            <div key={binding.id} className="bg-white rounded-2xl p-4 shadow-sm">
+              <div className="text-[13px] text-gray-700 mb-1">{paramLabel}</div>
+              <div className="text-[11px] text-gray-400 mb-3">{binding.label}</div>
+              <div className="space-y-2">
+                {list.map(s => {
+                  const selected = s.id === primaryId;
+                  return (
+                    <button
+                      type="button"
+                      key={s.id}
+                      onClick={() => onSetDisplayPrimary(binding.paramKey, s.id)}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${
+                        selected
+                          ? 'bg-emerald-50 border-2 border-emerald-400'
+                          : 'bg-gray-50 border-2 border-transparent'
+                      }`}
+                    >
+                      <div className="flex-1 text-left">
+                        <div className="text-[13px]">{s.name}</div>
+                        <div className="text-[11px] text-gray-400">{s.model} · ID:{s.id}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!s.online && (
+                          <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                            离线
+                          </span>
+                        )}
+                        {selected ? (
+                          <Eye className="w-4 h-4 text-emerald-500" />
+                        ) : (
+                          <EyeOff className="w-4 h-4 text-gray-300" />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))
+          );
+        })
       )}
 
-      <button onClick={onBack} className="w-full bg-emerald-600 text-white rounded-xl py-3 text-[14px]">
-        保存
+      <button type="button" onClick={onBack} className="w-full bg-emerald-600 text-white rounded-xl py-3 text-[14px]">
+        完成
       </button>
     </div>
   );
 }
 
 /* ===== Main Sensors Tab ===== */
-export function SensorsTab({ onSubPageChange }: { onSubPageChange?: (inSub: boolean) => void }) {
+export function SensorsTab({
+  onSubPageChange,
+  displayPrimaryByParamKey,
+  onSetDisplayPrimary,
+}: {
+  onSubPageChange?: (inSub: boolean) => void;
+  displayPrimaryByParamKey: Record<string, string>;
+  onSetDisplayPrimary: (paramKey: string, sensorId: string) => void;
+}) {
   const [selectedSensor, setSelectedSensor] = useState<string | null>(null);
   const [showAddFlow, setShowAddFlow] = useState(false);
   const [showDisplayPref, setShowDisplayPref] = useState(false);
+
+  const sensorShowsOnRealtimeCard = (s: SensorData) =>
+    s.metrics.some(m => displayPrimaryByParamKey[m.paramKey] === s.id);
 
   const goToDetail = (id: string) => {
     setSelectedSensor(id);
@@ -540,9 +582,25 @@ export function SensorsTab({ onSubPageChange }: { onSubPageChange?: (inSub: bool
   };
 
   const sensor = sensors.find(s => s.id === selectedSensor);
-  if (sensor) return <SensorDetail sensor={sensor} onBack={goBack} />;
+  if (sensor) {
+    return (
+      <SensorDetail
+        sensor={sensor}
+        showsOnRealtimeCard={sensorShowsOnRealtimeCard(sensor)}
+        onBack={goBack}
+      />
+    );
+  }
   if (showAddFlow) return <AddSensorFlow onBack={goBack} />;
-  if (showDisplayPref) return <DisplayPreference onBack={goBack} />;
+  if (showDisplayPref) {
+    return (
+      <DisplayPreference
+        onBack={goBack}
+        displayPrimaryByParamKey={displayPrimaryByParamKey}
+        onSetDisplayPrimary={onSetDisplayPrimary}
+      />
+    );
+  }
 
   const onlineCount = sensors.filter(s => s.online).length;
 
@@ -597,7 +655,7 @@ export function SensorsTab({ onSubPageChange }: { onSubPageChange?: (inSub: bool
                 <div>
                   <div className="flex items-center gap-2">
                     <h4 className="text-[14px]">{sensor.name}</h4>
-                    {sensor.showOnRealtime && (
+                    {sensorShowsOnRealtimeCard(sensor) && (
                       <Eye className="w-3 h-3 text-emerald-400" />
                     )}
                   </div>

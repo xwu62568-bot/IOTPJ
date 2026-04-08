@@ -1,7 +1,15 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { ArrowLeft, Plus, Bell } from 'lucide-react';
-import { projects } from '../data/mock-data';
+import { projects, realtimeDisplayBindings } from '../data/mock-data';
+
+function buildInitialDisplayPrimaries(): Record<string, string> {
+  const m: Record<string, string> = {};
+  realtimeDisplayBindings.forEach(b => {
+    m[b.paramKey] = b.primarySensorId || b.sensorIds[0];
+  });
+  return m;
+}
 import { RealtimeTab } from './tabs/realtime-tab';
 import { DevicesTab } from './tabs/devices-tab';
 import { SensorsTab } from './tabs/sensors-tab';
@@ -19,6 +27,7 @@ export function ProjectDetail() {
   const [activeTab, setActiveTab] = useState(0);
   const [inSubPage, setInSubPage] = useState(false);
   const [overlay, setOverlay] = useState<OverlayPage>(null);
+  const [displayPrimaryByParamKey, setDisplayPrimaryByParamKey] = useState(buildInitialDisplayPrimaries);
   const project = projects.find(p => p.id === id) || projects[0];
 
   const showHeader = !inSubPage && !overlay;
@@ -77,9 +86,22 @@ export function ProjectDetail() {
           {overlay === 'alarms' && (
             <ProjectAlarms onBack={() => setOverlay(null)} projectName={project.name} />
           )}
-          {!overlay && activeTab === 0 && <RealtimeTab onSubPageChange={setInSubPage} />}
+          {!overlay && activeTab === 0 && (
+            <RealtimeTab
+              onSubPageChange={setInSubPage}
+              displayPrimaryByParamKey={displayPrimaryByParamKey}
+            />
+          )}
           {!overlay && activeTab === 1 && <DevicesTab onSubPageChange={setInSubPage} />}
-          {!overlay && activeTab === 2 && <SensorsTab onSubPageChange={setInSubPage} />}
+          {!overlay && activeTab === 2 && (
+            <SensorsTab
+              onSubPageChange={setInSubPage}
+              displayPrimaryByParamKey={displayPrimaryByParamKey}
+              onSetDisplayPrimary={(paramKey, sensorId) =>
+                setDisplayPrimaryByParamKey(prev => ({ ...prev, [paramKey]: sensorId }))
+              }
+            />
+          )}
           {!overlay && activeTab === 3 && <ProjectSettingsTab />}
         </div>
       </div>
