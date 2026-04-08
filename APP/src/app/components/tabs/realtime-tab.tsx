@@ -211,11 +211,15 @@ export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boo
                     </span>
                   )}
                   <div className="flex items-center justify-between mb-1.5">
-                    <IconComp className={`w-5 h-5 ${card.color}`} />
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
+                      hasLink ? card.bgColor : 'bg-gray-50'
+                    }`}>
+                      <IconComp className={`${hasLink ? 'w-6 h-6' : 'w-5 h-5'} ${card.color}`} />
+                    </div>
                     {hasLink && (
-                      <div className="flex items-center gap-0.5 text-[9px] text-gray-300">
-                        <Link2 className="w-2.5 h-2.5" />
-                        <ChevronRight className="w-2.5 h-2.5" />
+                      <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-600">
+                        <Link2 className="w-3 h-3" />
+                        <ChevronRight className="w-3 h-3" />
                       </div>
                     )}
                   </div>
@@ -257,12 +261,17 @@ export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boo
                         onClick={() => useStrategyPage ? goToStrategy(card.key) : goToRootDetail(card.key as 'soilTemp' | 'soilHumidity')}
                         className={`${card.bgColor} rounded-xl p-3 text-center relative active:scale-[0.97]`}
                       >
+                        {useStrategyPage && (
+                          <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 px-1.5 py-1 rounded-full bg-white/90 text-emerald-600 shadow-sm">
+                            <Link2 className="w-2.5 h-2.5" />
+                            <ChevronRight className="w-2.5 h-2.5" />
+                          </div>
+                        )}
                         <div className="text-[10px] text-gray-400">{card.label}</div>
-                        <div className={`text-[16px] ${card.color}`}>
+                        <div className={`text-[18px] ${card.color}`}>
                           {d?.value || '--'}
                           <span className="text-[9px] ml-0.5">{card.unit}</span>
                         </div>
-                        <Link2 className="w-2.5 h-2.5 text-gray-300 absolute top-1.5 right-1.5" />
                       </button>
                     );
                   })}
@@ -283,12 +292,17 @@ export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boo
                         onClick={() => useStrategyPage ? goToStrategy(card.key) : goToRootDetail(card.key as 'waterTemp' | 'waterLevel' | 'ec' | 'ph')}
                         className={`${card.bgColor} rounded-xl p-3 text-center relative active:scale-[0.97]`}
                       >
+                        {useStrategyPage && (
+                          <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 px-1.5 py-1 rounded-full bg-white/90 text-emerald-600 shadow-sm">
+                            <Link2 className="w-2.5 h-2.5" />
+                            <ChevronRight className="w-2.5 h-2.5" />
+                          </div>
+                        )}
                         <div className="text-[10px] text-gray-400">{card.label}</div>
-                        <div className={`text-[16px] ${card.color}`}>
+                        <div className={`text-[18px] ${card.color}`}>
                           {d?.value || '--'}
                           <span className="text-[9px] ml-0.5">{card.unit}</span>
                         </div>
-                        <Link2 className="w-2.5 h-2.5 text-gray-300 absolute top-1.5 right-1.5" />
                       </button>
                     );
                   })}
