@@ -8,8 +8,12 @@ import {
   type RealtimeDisplayBinding, type SensorData, type SensorMetric,
 } from '../../data/mock-data';
 import { LinkageStrategy } from '../config/linkage-strategy';
+import { RootZoneDetail } from '../config/root-zone-detail';
 
-type ConfigPage = null | string; // paramKey
+type RealtimePageState =
+  | null
+  | { type: 'strategy'; paramKey: string }
+  | { type: 'root-detail'; paramKey: 'soilTemp' | 'soilHumidity' | 'waterTemp' | 'waterLevel' | 'ec' | 'ph' };
 
 const iconMap: Record<string, any> = {
   thermometer: Thermometer,
@@ -81,14 +85,19 @@ function resolveDisplayBinding(binding: RealtimeDisplayBinding) {
 }
 
 export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boolean) => void }) {
-  const [configPage, setConfigPage] = useState<ConfigPage>(null);
+  const [pageState, setPageState] = useState<RealtimePageState>(null);
 
-  const goToConfig = (page: string) => {
-    setConfigPage(page);
+  const goToStrategy = (paramKey: string) => {
+    setPageState({ type: 'strategy', paramKey });
+    onSubPageChange?.(true);
+  };
+
+  const goToRootDetail = (paramKey: 'soilTemp' | 'soilHumidity' | 'waterTemp' | 'waterLevel' | 'ec' | 'ph') => {
+    setPageState({ type: 'root-detail', paramKey });
     onSubPageChange?.(true);
   };
   const goBack = () => {
-    setConfigPage(null);
+    setPageState(null);
     onSubPageChange?.(false);
   };
 
@@ -111,21 +120,38 @@ export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boo
 
   const strategyMap = new Map(controlStrategies.map(strategy => [strategy.paramKey, strategy]));
 
-  // Linkage strategy page
-  if (configPage) {
-    const paramDef = paramCardDefs.find(p => p.key === configPage);
-    const value = configPage === 'vpd'
+  if (pageState?.type === 'strategy') {
+    const paramDef = paramCardDefs.find(p => p.key === pageState.paramKey);
+    const value = pageState.paramKey === 'vpd'
       ? (vpdData ? String(vpdData.leaf) : '--')
-      : (activeParams.get(configPage)?.value || '--');
+      : (activeParams.get(pageState.paramKey)?.value || '--');
     const unit = paramDef?.unit || '';
 
     return (
       <LinkageStrategy
-        paramKey={configPage}
-        paramLabel={paramDef?.label || configPage}
+        paramKey={pageState.paramKey}
+        paramLabel={paramDef?.label || pageState.paramKey}
         currentValue={value}
         unit={unit}
         onBack={goBack}
+      />
+    );
+  }
+
+  if (pageState?.type === 'root-detail') {
+    const paramDef = paramCardDefs.find(p => p.key === pageState.paramKey);
+    const activeParam = activeParams.get(pageState.paramKey);
+    const hasStrategy = strategyMap.has(pageState.paramKey);
+
+    return (
+      <RootZoneDetail
+        paramKey={pageState.paramKey}
+        paramLabel={paramDef?.label || pageState.paramKey}
+        currentValue={activeParam?.value || '--'}
+        unit={paramDef?.unit || ''}
+        sensorName={activeParam?.sensorName}
+        onBack={goBack}
+        onOpenStrategy={hasStrategy ? () => goToStrategy(pageState.paramKey) : undefined}
       />
     );
   }
@@ -140,6 +166,7 @@ export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boo
   const solutionCards = paramCardDefs.filter(p => solutionKeys.includes(p.key) && activeParams.has(p.key));
   const processCards = [...mediumCards, ...solutionCards];
   const hasMeter = devices.some(d => d.type === 'meter');
+  const directStrategyKeys = new Set(['soilHumidity', 'waterLevel']);
 
   return (
     <div className="space-y-4">
@@ -173,7 +200,7 @@ export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boo
               return (
                 <button
                   key={card.key}
-                  onClick={() => hasLink ? goToConfig(card.key) : undefined}
+                  onClick={() => hasLink ? goToStrategy(card.key) : undefined}
                   className={`rounded-2xl p-4 text-left relative overflow-hidden shadow-sm transition-all ${
                     isAlarm ? 'bg-red-50 border border-red-200' : 'bg-white'
                   } ${hasLink ? 'active:scale-[0.98]' : ''}`}
@@ -223,21 +250,19 @@ export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boo
                 <div className="grid grid-cols-2 gap-2">
                   {mediumCards.map(card => {
                     const d = activeParams.get(card.key);
-                    const hasLink = card.hasLinkage && strategyMap.has(card.key);
+                    const useStrategyPage = directStrategyKeys.has(card.key) && strategyMap.has(card.key);
                     return (
                       <button
                         key={card.key}
-                        onClick={() => hasLink ? goToConfig(card.key) : undefined}
-                        className={`${card.bgColor} rounded-xl p-3 text-center relative ${hasLink ? 'active:scale-[0.97]' : ''}`}
+                        onClick={() => useStrategyPage ? goToStrategy(card.key) : goToRootDetail(card.key as 'soilTemp' | 'soilHumidity')}
+                        className={`${card.bgColor} rounded-xl p-3 text-center relative active:scale-[0.97]`}
                       >
                         <div className="text-[10px] text-gray-400">{card.label}</div>
                         <div className={`text-[16px] ${card.color}`}>
                           {d?.value || '--'}
                           <span className="text-[9px] ml-0.5">{card.unit}</span>
                         </div>
-                        {hasLink && (
-                          <Link2 className="w-2.5 h-2.5 text-gray-300 absolute top-1.5 right-1.5" />
-                        )}
+                        <Link2 className="w-2.5 h-2.5 text-gray-300 absolute top-1.5 right-1.5" />
                       </button>
                     );
                   })}
@@ -251,21 +276,19 @@ export function RealtimeTab({ onSubPageChange }: { onSubPageChange?: (inSub: boo
                 <div className="grid grid-cols-2 gap-2">
                   {solutionCards.map(card => {
                     const d = activeParams.get(card.key);
-                    const hasLink = card.hasLinkage && strategyMap.has(card.key);
+                    const useStrategyPage = directStrategyKeys.has(card.key) && strategyMap.has(card.key);
                     return (
                       <button
                         key={card.key}
-                        onClick={() => hasLink ? goToConfig(card.key) : undefined}
-                        className={`${card.bgColor} rounded-xl p-3 text-center relative ${hasLink ? 'active:scale-[0.97]' : ''}`}
+                        onClick={() => useStrategyPage ? goToStrategy(card.key) : goToRootDetail(card.key as 'waterTemp' | 'waterLevel' | 'ec' | 'ph')}
+                        className={`${card.bgColor} rounded-xl p-3 text-center relative active:scale-[0.97]`}
                       >
                         <div className="text-[10px] text-gray-400">{card.label}</div>
                         <div className={`text-[16px] ${card.color}`}>
                           {d?.value || '--'}
                           <span className="text-[9px] ml-0.5">{card.unit}</span>
                         </div>
-                        {hasLink && (
-                          <Link2 className="w-2.5 h-2.5 text-gray-300 absolute top-1.5 right-1.5" />
-                        )}
+                        <Link2 className="w-2.5 h-2.5 text-gray-300 absolute top-1.5 right-1.5" />
                       </button>
                     );
                   })}

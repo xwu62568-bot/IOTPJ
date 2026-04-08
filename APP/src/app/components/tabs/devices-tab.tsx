@@ -88,23 +88,41 @@ export function DevicesTab({ onSubPageChange }: { onSubPageChange?: (inSub: bool
                   <div className="space-y-1.5">
                     {configuredPorts.map(port => {
                       const isOn = portStates[dev.id]?.[port.id] ?? port.status;
+                      const typeInfo = dryContactDeviceTypes.find(d => d.key === port.deviceType);
                       return (
                         <div
                           key={port.id}
-                          className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2 gap-2"
+                          className="flex items-center gap-3 bg-gradient-to-r from-gray-50 to-white rounded-2xl px-3 py-3 border border-gray-100"
                         >
                           <button
                             onClick={() => goToDetail(dev.id, port.id)}
-                            className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                            className="flex items-center gap-3 flex-1 min-w-0 text-left"
                           >
-                            <span className="w-6 h-6 rounded-lg flex items-center justify-center text-[12px] shrink-0">
-                              {dryContactDeviceTypes.find(d => d.key === port.deviceType)?.icon || '⚙️'}
+                            <span className="w-10 h-10 rounded-xl bg-white shadow-sm border border-gray-100 flex items-center justify-center text-[16px] shrink-0">
+                              {typeInfo?.icon || '⚙️'}
                             </span>
-                            <span className="text-[12px] truncate">{port.name}</span>
-                            <span className="text-[10px] text-gray-400 shrink-0">#{port.id}</span>
-                            <ChevronRight className="w-3.5 h-3.5 text-gray-300 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-[13px] text-gray-800 truncate">{port.name}</span>
+                                <span className="text-[10px] text-gray-400 shrink-0">#{port.id}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white text-gray-500 border border-gray-100">
+                                  {typeInfo?.label || '未分类'}
+                                </span>
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                                  isOn ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                                }`}>
+                                  {isOn ? '运行中' : '已关闭'}
+                                </span>
+                              </div>
+                            </div>
+                            <span className="w-7 h-7 rounded-full bg-white border border-gray-100 flex items-center justify-center shrink-0">
+                              <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                            </span>
                           </button>
-                          <div onClick={e => e.stopPropagation()} className="shrink-0">
+                          <div className="shrink-0 flex flex-col items-end gap-1">
+                            <span className="text-[10px] text-gray-400">手动开关</span>
                             <Switch
                               checked={isOn}
                               onCheckedChange={v => {
