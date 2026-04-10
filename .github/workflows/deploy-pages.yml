@@ -30,18 +30,34 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: APP/package-lock.json
+          cache-dependency-path: |
+            APP/package-lock.json
+            iot-unified-saas/package-lock.json
 
-      - name: Install dependencies
+      - name: Install APP dependencies
         working-directory: APP
         run: npm ci
 
-      - name: Build
+      - name: Build APP
         working-directory: APP
         env:
           VITE_DEPLOY_TARGET: github-pages
           VITE_BASE_PATH: /IOTPJ/
         run: npm run build
+
+      - name: Install iot-unified-saas dependencies
+        working-directory: iot-unified-saas
+        run: npm ci
+
+      - name: Build iot-unified-saas
+        working-directory: iot-unified-saas
+        env:
+          VITE_DEPLOY_TARGET: github-pages
+          VITE_BASE_PATH: /IOTPJ/saas/
+        run: npm run build
+
+      - name: Copy SaaS build into Pages bundle
+        run: mkdir -p APP/dist/saas && cp -r iot-unified-saas/dist/. APP/dist/saas/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

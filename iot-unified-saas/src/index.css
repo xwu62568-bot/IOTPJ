@@ -1,0 +1,43 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@theme {
+  --font-sans:
+    'Noto Sans SC', 'DM Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+    'Segoe UI Emoji';
+  --color-surface: #f7f9fc;
+  --color-surface-2: #eef2f7;
+  --color-border: #e2e8f0;
+  --color-accent: #059669;
+  --color-accent-muted: #d1fae5;
+  --shadow-sidebar: 4px 0 24px -8px rgb(15 23 42 / 0.08);
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 32px -8px rgb(15 23 42 / 0.08);
+  --shadow-card-hover: 0 4px 24px -6px rgb(15 23 42 / 0.12), 0 12px 40px -12px rgb(5 150 105 / 0.08);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: var(--font-sans);
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    background-color: var(--color-surface);
+    background-image:
+      radial-gradient(ellipse 120% 80% at 50% -30%, rgb(209 250 229 / 0.55), transparent 55%),
+      radial-gradient(ellipse 70% 50% at 100% 0%, rgb(224 231 255 / 0.35), transparent 45%),
+      radial-gradient(ellipse 50% 40% at 0% 100%, rgb(254 243 199 / 0.25), transparent 40%);
+    background-attachment: fixed;
+  }
+  #root {
+    min-height: 100vh;
+  }
+  ::selection {
+    background-color: rgb(167 243 208 / 0.65);
+    color: #064e3b;
+  }
+}
